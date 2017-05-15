@@ -44,8 +44,14 @@ GUI_NeutronHook::createPrimitive(const GT_PrimitiveHandle& gt_prim,
     const char* cache_name,
     GR_PrimAcceptResult& processed)
 {
-    if (geo_prim->getTypeId().get() == GA_PRIMPOLYSOUP) {
-        std::cout << "OI!" << std::endl;
+    GU_Detail* parent = static_cast<GU_Detail*>(geo_prim->getParent());
+  
+    //see if we have a detail attrib on there
+    GA_RWHandleS attrib(parent, GA_ATTRIB_DETAIL, "__fluid__");
+
+    //only create hook if attribute is set
+    if (geo_prim->getTypeId().get() == GA_PRIMPOLYSOUP && attrib.isValid()) {
+        
         // We're going to process this prim and prevent any more lower-priority
         // hooks from hooking on it. Alternatively, GR_PROCESSED_NON_EXCLUSIVE
         // could be passed back, in which case any hooks of lower priority would
@@ -76,24 +82,15 @@ GUI_Neutron::acceptPrimitive(GT_PrimitiveType t,
     const GT_PrimitiveHandle& ph,
     const GEO_Primitive* prim)
 {
-    GU_Detail* parent = dynamic_cast<GU_Detail*>(prim->getParent());
-    if(!parent){
-        std::cout << "failed" << std::endl;
-    }
-    else{
-        std::cout << "succeeds" << std::endl;
-    }
-    //GA_RWHandleS attrib(parent->findFloatTuple(GA_ATTRIB_DETAIL, "__fluid__"));
-    GA_RWHandleS attrib(parent, GA_ATTRIB_DETAIL,"__fluid__");
-    if (!attrib.isValid()) {
-        std::cout << "NOT SET!" << std::endl;
-    }
-    else{
-        std::cout << "VALID!" << std::endl;
-    }
-    
-    if (geo_type == GA_PRIMPOLYSOUP)
+    GU_Detail* parent = static_cast<GU_Detail*>(prim->getParent());
+  
+    //see if we have a detail attrib on there
+    GA_RWHandleS attrib(parent, GA_ATTRIB_DETAIL, "__fluid__");
+
+    if (geo_type == GA_PRIMPOLYSOUP && attrib.isValid()){
+        std::cout << "accepted" << std::endl;
         return GR_PROCESSED;
+    }
 
     return GR_NOT_PROCESSED;
 }
@@ -110,10 +107,8 @@ void GUI_Neutron::renderDecoration(RE_Render* r,
     const GR_DecorationParms& p)
 {
     if (decor >= GR_USER_DECORATION) {
-        
     }
 }
-
 
 void GUI_Neutron::render(RE_Render* r,
     GR_RenderMode render_mode,
