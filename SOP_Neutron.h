@@ -40,7 +40,9 @@ virtual OP_ERROR cookMyGuide1(OP_Context &context);
 
 private:
 
-
+    UT_String aname = UT_String("__fluid__");
+    GA_RWHandleS attrib;
+    bool initialized = false;
 	fpreal last = 0.0f;
 };
 } // End HDK_Sample namespace
