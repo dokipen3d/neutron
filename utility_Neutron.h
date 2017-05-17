@@ -2,19 +2,17 @@
 #ifndef __UTILITY_Neutron_h__
 #define __UTILITY_Neutron_h__
 
+#include <vector>
 
 class mySim{
 public:
-    void doSomething(){
-            std::cout << "doing something" << std::endl;
-    }
+    void doSomething();
 };
 
 
 class myFluid{
 
 public:
-    myFluid(){}
 
     static std::vector<mySim> simvec;
 

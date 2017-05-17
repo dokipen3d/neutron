@@ -9,12 +9,11 @@
 #include <GT/GT_GEOPrimitive.h>
 #include <RE/RE_Geometry.h>
 #include <RE/RE_Render.h>
-#include <UT/UT_DSOVersion.h>
-#include "utility_Neutron.hpp"
+//#include <UT/UT_DSOVersion.h>
+#include "utility_Neutron.h"
 
 using namespace HDK_Sample;
 
-std::vector<mySim> myFluid::simvec;
 
 // install the hook.
 void newRenderHook(DM_RenderTable* table)

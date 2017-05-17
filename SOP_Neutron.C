@@ -24,10 +24,11 @@
 #include <UT/UT_Vector3.h>
 #include <iostream>
 #include <stddef.h>
+#include "utility_Neutron.h"
+
 
 using namespace Neutron;
 
-std::vector<mySim> myFluid::simvec;
 
 
 void newSopOperator(OP_OperatorTable* table)

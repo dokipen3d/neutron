@@ -13,7 +13,6 @@
 
 #include <SOP/SOP_Node.h>
 #include <iostream>
-#include "utility_Neutron.hpp"
 
 namespace Neutron {
 
