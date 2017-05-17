@@ -12,8 +12,13 @@
 #define __SOP_Neutron_h__
 
 #include <SOP/SOP_Node.h>
+#include <iostream>
+#include "utility_Neutron.hpp"
 
 namespace Neutron {
+
+
+
 class SOP_Neutron : public SOP_Node
 {
 public:
@@ -42,6 +47,8 @@ private:
 
     UT_String aname = UT_String("__fluid__");
     GA_RWHandleS attrib;
+    GA_RWHandleI uniqueIndex;
+
     bool initialized = false;
 	fpreal last = 0.0f;
 };

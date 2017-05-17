@@ -1,7 +1,9 @@
 #ifndef __GUI_PolySoupBox__
 #define __GUI_PolySoupBox__
+
 #include <GUI/GUI_PrimitiveHook.h>
 #include <GR/GR_Primitive.h>
+
 class RE_Geometry;
 namespace HDK_Sample
 {

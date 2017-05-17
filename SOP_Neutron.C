@@ -27,6 +27,9 @@
 
 using namespace Neutron;
 
+std::vector<mySim> myFluid::simvec;
+
+
 void newSopOperator(OP_OperatorTable* table)
 {
     table->addOperator(new OP_Operator(
@@ -85,6 +88,9 @@ SOP_Neutron::SOP_Neutron(OP_Network* net, const char* name, OP_Operator* op)
     mySopFlags.setNeedGuide1(true);
     gdp = new GU_Detail();
     // Try with a float
+
+    myFluid::simvec.push_back(mySim{});
+    
     
 
 }
@@ -111,10 +117,14 @@ SOP_Neutron::cookMySop(OP_Context& context)
         attrib = GA_RWHandleS(gdp->addStringTuple(GA_ATTRIB_DETAIL, "__fluid__", 1));
         //if not set then when checking in the GUI renderhook then it wont be valid
         attrib.set(0,"ON");
+        
     }
     if(!initialized){
             gdp->appendPrimitive(GA_PRIMPOLYSOUP);
             initialized = true;
+
+            uniqueIndex = GA_RWHandleI(gdp->addIntTuple(GA_ATTRIB_DETAIL,"uniqueHandleID",1 ));
+            uniqueIndex.set(0,myFluid::simvec.size()-1);
     }
     
 

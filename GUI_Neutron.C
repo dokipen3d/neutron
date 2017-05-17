@@ -10,7 +10,11 @@
 #include <RE/RE_Geometry.h>
 #include <RE/RE_Render.h>
 #include <UT/UT_DSOVersion.h>
+#include "utility_Neutron.hpp"
+
 using namespace HDK_Sample;
+
+std::vector<mySim> myFluid::simvec;
 
 // install the hook.
 void newRenderHook(DM_RenderTable* table)
@@ -44,13 +48,10 @@ GUI_NeutronHook::createPrimitive(const GT_PrimitiveHandle& gt_prim,
     const char* cache_name,
     GR_PrimAcceptResult& processed)
 {
-    GU_Detail* parent = static_cast<GU_Detail*>(geo_prim->getParent());
-  
-    //see if we have a detail attrib on there
-    GA_RWHandleS attrib(parent, GA_ATTRIB_DETAIL, "__fluid__");
+    
 
     //only create hook if attribute is set
-    if (geo_prim->getTypeId().get() == GA_PRIMPOLYSOUP && attrib.isValid()) {
+    if (geo_prim->getTypeId().get() == GA_PRIMPOLYSOUP) {
         
         // We're going to process this prim and prevent any more lower-priority
         // hooks from hooking on it. Alternatively, GR_PROCESSED_NON_EXCLUSIVE
@@ -86,9 +87,12 @@ GUI_Neutron::acceptPrimitive(GT_PrimitiveType t,
   
     //see if we have a detail attrib on there
     GA_RWHandleS attrib(parent, GA_ATTRIB_DETAIL, "__fluid__");
+    GA_RWHandleI uniqueHandleID(parent, GA_ATTRIB_DETAIL, "uniqueHandleID");
 
     if (geo_type == GA_PRIMPOLYSOUP && attrib.isValid()){
         std::cout << "accepted" << std::endl;
+        mySim& simObject = myFluid::simvec[uniqueHandleID.get(0)];
+        simObject.doSomething();
         return GR_PROCESSED;
     }
 
