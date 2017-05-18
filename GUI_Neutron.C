@@ -110,7 +110,10 @@ void GUI_Neutron::renderDecoration(RE_Render* r,
     const GR_DecorationParms& p)
 {
     if (decor >= GR_USER_DECORATION) {
+        
     }
+    UT_DimRect saved_vp = r->getViewport2DI();
+        std::cout << saved_vp.width() << " " << saved_vp.height() << std::endl;
 }
 
 void GUI_Neutron::render(RE_Render* r,
@@ -118,7 +121,9 @@ void GUI_Neutron::render(RE_Render* r,
     GR_RenderFlags flags,
     GR_DrawParms dp)
 {
+    
     // The native Houdini primitive for polysoups will do the rendering.
+    
 }
 int GUI_Neutron::renderPick(RE_Render* r,
     const GR_DisplayOption* opt,
