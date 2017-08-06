@@ -102,7 +102,7 @@ OP_ERROR
 SOP_Neutron::cookMySop(OP_Context& context)
 
 {
-
+    
     OP_Node::flags().timeDep = 1;
 
     fpreal now = context.getTime();

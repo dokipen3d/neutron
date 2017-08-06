@@ -71,9 +71,11 @@ public:
                                           const GR_DecorationParms &p);
     
 private:
-    
+    void renderFluid(RE_Render *r, const GR_DisplayOption *opts);
     
     RE_Geometry         *myGeometry;
+    bool draw;
+    
 };
 } // End HDK_Sample namespace.
 #endif

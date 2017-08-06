@@ -4,6 +4,10 @@
 *.o
 *.obj
 
+#vscode files
+*.vscode
+*backup
+
 # Precompiled Headers
 *.gch
 *.pch
