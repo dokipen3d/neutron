@@ -65,16 +65,14 @@ public:
                                    bool has_pick_map);
     /// @}
     
-    /// Called when decoration 'decor' is required to be rendered.
-    virtual void         renderDecoration(RE_Render *r,
-                                          GR_Decoration decor,
-                                          const GR_DecorationParms &p);
+    
     
 private:
     void renderFluid(RE_Render *r, const GR_DisplayOption *opts);
     
     RE_Geometry         *myGeometry;
-    bool draw;
+
+    RE_Shader *sh;
     
 };
 } // End HDK_Sample namespace.

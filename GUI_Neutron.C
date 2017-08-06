@@ -11,11 +11,46 @@
 #include <RE/RE_Render.h>
 //#include <UT/UT_DSOVersion.h>
 #include "utility_Neutron.h"
+#include <string>
+#include <cstdio>
+
 
 using namespace HDK_Sample;
 
 const char *RENDER_FLUID = "renderfluid";
 const int FLUID_DRAW_GROUP = 0;
+
+const char* vertSh = 
+
+"#version 150 \n"
+"\n"
+"uniform mat4 glH_ObjectMatrix; \n"
+"uniform mat4 glH_ViewMatrix; \n"
+"uniform mat4 glH_ProjectMatrix; \n"
+"in vec3 P; \n"
+"in vec3 Cd; \n"
+"out vec4 vcolor; \n"
+"void main() \n"
+"{ \n"
+    "vcolor = vec4(Cd, 1.0); \n"
+    "gl_Position = glH_ProjectMatrix * \n"
+	"glH_ViewMatrix * glH_ObjectMatrix * vec4(P, 1.0); \n"
+"} \n";
+
+const char* fragSh = 
+"#version 150 \n"
+"in vec4 vcolor; \n"
+"out vec4 color; \n"
+"void main() \n"
+"{ \n"
+    "color = vcolor; \n"
+"} \n";
+
+
+
+
+//const char* vertSh = vert.c_str();
+//const char* fragSh = frag.c_str();
 
 
 // install the hook.
@@ -32,7 +67,7 @@ void newRenderHook(DM_RenderTable* table)
         GUI_HOOK_FLAG_AUGMENT_PRIM);
 
     // register custom display options for the hook
-    table->installGeometryOption(RENDER_FLUID, "Render Fluid");
+    //table->installGeometryOption(RENDER_FLUID, "Render Fluid");
 
 }
 // -------------------------------------------------------------------------
@@ -79,6 +114,9 @@ GUI_Neutron::GUI_Neutron(const GR_RenderInfo* info,
     : GR_Primitive(info, cache_name, GA_PrimCompat::TypeMask(0))
 {
     myGeometry = NULL;
+
+    
+
 }
 
 
@@ -113,7 +151,10 @@ void GUI_Neutron::update(RE_Render* r,
     const GT_PrimitiveHandle& primh,
     const GR_UpdateParms& p)
 {
-    if (p.reason & (GR_GEO_CHANGED | GR_GEO_TOPOLOGY_CHANGED | GR_INSTANCE_PARMS_CHANGED)) {
+    
+
+
+    if (p.reason & (GR_GEO_CHANGED | GR_GEO_TOPOLOGY_CHANGED | GR_INSTANCE_PARMS_CHANGED)) {}
         
         UT_DimRect saved_vp = r->getViewport2DI();
             std::cout << saved_vp.width() << " " << saved_vp.height() << std::endl;
@@ -122,20 +163,14 @@ void GUI_Neutron::update(RE_Render* r,
 
         if(!myGeometry)
         {
-            myGeometry = new RE_Geometry(8 + 1);
+            myGeometry = new RE_Geometry(8);
+            myGeometry->setNumPoints( 8);
             new_geo = true;
         }
 
+        //create an array of vectors to hold cube
         UT_Vector3FArray pos(8,8);
-        // pos(0) = UT_Vector3F(box.xmin(), box.ymin(), box.zmin());
-        // pos(1) = UT_Vector3F(box.xmax(), box.ymin(), box.zmin());
-        // pos(2) = UT_Vector3F(box.xmax(), box.ymax(), box.zmin());
-        // pos(3) = UT_Vector3F(box.xmin(), box.ymax(), box.zmin());
         
-        // pos(4) = UT_Vector3F(box.xmin(), box.ymin(), box.zmax());
-        // pos(5) = UT_Vector3F(box.xmax(), box.ymin(), box.zmax());
-        // pos(6) = UT_Vector3F(box.xmax(), box.ymax(), box.zmax());
-        // pos(7) = UT_Vector3F(box.xmin(), box.ymax(), box.zmax());
         pos(0) = UT_Vector3F(0.0, 0.0, 1.0);
         pos(1) = UT_Vector3F(1.0, 0.0, 1.0);
         pos(2) = UT_Vector3F(1.0, 1.0, 1.0);
@@ -146,14 +181,13 @@ void GUI_Neutron::update(RE_Render* r,
         pos(6) = UT_Vector3F(1.0, 1.0, 0.0);
         pos(7) = UT_Vector3F(0.0, 1.0, 0.0);
 
-        myGeometry->createAttribute(r, "P", RE_GPU_FLOAT32, 3,
-                        pos.array()->data());
+        
 
-        GR_Utils::buildInstanceObjectMatrix(r, primh, p, myGeometry,
-                            p.instance_version);
+        // GR_Utils::buildInstanceObjectMatrix(r, primh, p, myGeometry,
+        //                     p.instance_version);
 
-        if(new_geo)
-        {
+        //if(new_geo)
+        //{
             const uint cube_elements[] = {
                 // front
                 0, 1, 2,
@@ -176,79 +210,42 @@ void GUI_Neutron::update(RE_Render* r,
             };
 
             UT_Vector3FArray col(8,8);
-            col(0) = UT_Vector3F(1.0, 0.0, 1.0);
-            col(1) = UT_Vector3F(0.0, 1.0, 0.0);
-            col(2) = UT_Vector3F(0.0, 0.0, 1.0);
-            col(3) = UT_Vector3F(1.0, 1.0, 1.0);
+            col(0) = UT_Vector3F(0.0, 0.0, 1.0);
+            col(1) = UT_Vector3F(1.0, 0.0, 1.0);
+            col(2) = UT_Vector3F(1.0, 1.0, 1.0);
+            col(3) = UT_Vector3F(0.0, 1.0, 1.0);
             
-            col(4) = UT_Vector3F(1.0, 0.0, 0.0);
-            col(5) = UT_Vector3F(0.0, 1.0, 0.0);
-            col(6) = UT_Vector3F(0.0, 0.0, 1.0);
-            col(7) = UT_Vector3F(1.0, 1.0, 1.0);
-            fpreal cube_colors[] = {
-                        // front colors
-                        1.0, 0.0, 0.0,
-                        0.0, 1.0, 0.0,
-                        0.0, 0.0, 1.0,
-                        1.0, 1.0, 1.0,
-                        // back colors
-                        1.0, 0.0, 0.0,
-                        0.0, 1.0, 0.0,
-                        0.0, 0.0, 1.0,
-                        1.0, 1.0, 1.0,
-                    };
-
+            col(4) = UT_Vector3F(0.0, 0.0, 0.0);
+            col(5) = UT_Vector3F(1.0, 0.0, 0.0);
+            col(6) = UT_Vector3F(1.0, 1.0, 0.0);
+            col(7) = UT_Vector3F(0.0, 1.0, 0.0);
             
-            myGeometry->createAttribute(r, "Cd", RE_GPU_FLOAT32, 3, col.array()->data());       
+            
+            
+        //}
 
-            myGeometry->connectIndexedPrims(r, FLUID_DRAW_GROUP,
+        myGeometry->createAttribute(r, "P", RE_GPU_FLOAT32, 3, pos.array()->data(), RE_ARRAY_POINT, 8);
+        myGeometry->createAttribute(r, "Cd", RE_GPU_FLOAT32, 3, col.array()->data(), RE_ARRAY_POINT, 8);       
+
+        myGeometry->connectIndexedPrims(r, FLUID_DRAW_GROUP,
                                 RE_PRIM_TRIANGLES, 36, cube_elements);
-        }
 
         std::cout << "connected\n";
-    }
+    
     
 }
 
-void GUI_Neutron::renderDecoration(RE_Render* r,
-    GR_Decoration decor,
-    const GR_DecorationParms& p)
-{   
-    // std::cout << decor << "\n";
-    //  std::cout << GR_USER_DECORATION << "\n";
-    // std::cout << decor - GR_USER_DECORATION << "\n";
 
-    if(decor >= GR_USER_DECORATION)
-    {
-        int index = decor - GR_USER_DECORATION;
-        const GR_UserOption *user = GRgetOptionTable()->getOption(index);
-        if(user){
-            std::cout << "user is valid: " << index << "\n";
-
-        }
-        else{
-            std::cout << "user is NOT valid: ";
-        }
-
-        std::cout << user->getName();
-
-        // for user-installed options, the option name defines the type.
-        if(!strcmp(user->getName(), RENDER_FLUID))
-        {
-            std::cout << "dec\n";
-            renderFluid(r, p.opts);
-        }
-    }
-}
 
 void
 GUI_Neutron::renderFluid(RE_Render *r,
 			    const GR_DisplayOption *opts)
 {
 
-    r->pushShader( GR_Utils::getColorShader(r) );
-    std::cout << "draw\n";
-    myGeometry->draw(r, FLUID_DRAW_GROUP);
+    //r->pushShader( GR_Utils::getColorShader(r) );
+    r->pushShader(sh);
+    //std::cout << "draw\n";
+    //myGeometry->draw(r, FLUID_DRAW_GROUP);
     
     r->popShader();
 
@@ -260,8 +257,39 @@ void GUI_Neutron::render(RE_Render* r,
     GR_RenderFlags flags,
     GR_DrawParms dp)
 {
-    r->pushShader( GR_Utils::getColorShader(r) );
-    std::cout << "draw\n";
+
+    if(!sh){
+        std::cout << "got here beforecreate\n";
+
+        sh = RE_Shader::create("My Shader");
+        std::cout << "got here aftercreate\n";
+
+        UT_String errors;
+        // sh->addShader(r, RE_SHADER_VERTEX, vertSh, 
+        //             "optional readable name", 150, // glsl version
+        //             &errors);
+        // sh->addShader(r, RE_SHADER_FRAGMENT, fragSh, 
+        //             "optional readable name", 150,
+        //             &errors);
+        std::cout << "got here before add vert\n";
+        sh->addShader(r, RE_SHADER_VERTEX, vertSh, 
+                    "optional readable name", 0);
+        std::cout << "got here after add vert\n";
+
+        sh->addShader(r, RE_SHADER_FRAGMENT, fragSh, 
+                    "optional readable name", 0);
+        std::cout << "got here after add frag\n";
+
+        sh->linkShaders(r, &errors);
+        std::cout << "linked\n";
+
+
+        //std::cout << errors.c_str() << "\n";
+        std::cout << "linked2\n";
+
+    }
+    r->pushShader( sh );
+    //std::cout << "draw\n";
     myGeometry->draw(r, FLUID_DRAW_GROUP);
     
     r->popShader();
