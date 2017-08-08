@@ -87,10 +87,13 @@ SOP_Neutron::SOP_Neutron(OP_Network* net, const char* name, OP_Operator* op)
 
     // Make sure to flag that we can supply a guide geometry
     mySopFlags.setNeedGuide1(true);
-    gdp = new GU_Detail();
+    std::cout << "con!\n";
+    cachedGDP = new GU_Detail();
     // Try with a float
 
     myFluid::simvec.push_back(mySim{});
+    
+
     
     
 
@@ -103,30 +106,38 @@ SOP_Neutron::cookMySop(OP_Context& context)
 
 {
     
+    gdp->clearAndDestroy();
     OP_Node::flags().timeDep = 1;
+    SOP_Node::flags().forceCook = 1;
 
     fpreal now = context.getTime();
     std::cout << "time is " << now << "\n";
     std::cout << "time elapsed is " << now - last << "\n";
     std::cout << std::endl;
     last = now;
-    OP_Node::flags().forceCook = 1;
     //sOP_Node::flags().alwaysCook = 1;
-    attrib = gdp->findFloatTuple(GA_ATTRIB_DETAIL, "__fluid__");
-    // Not present, so create the detail attribute:
-    if (!attrib.isValid()) {
-        attrib = GA_RWHandleS(gdp->addStringTuple(GA_ATTRIB_DETAIL, "__fluid__", 1));
-        //if not set then when checking in the GUI renderhook then it wont be valid
-        attrib.set(0,"ON");
+    
         
-    }
+    
     if(!initialized){
-            gdp->appendPrimitive(GA_PRIMPOLYSOUP);
-            initialized = true;
+            cachedGDP->appendPrimitive(GA_PRIMPOLYSOUP);
+            attrib = cachedGDP->findFloatTuple(GA_ATTRIB_DETAIL, "__fluid__");
+            // Not present, so create the detail attribute:
+            if (!attrib.isValid()) {
+                attrib = GA_RWHandleS(cachedGDP->addStringTuple(GA_ATTRIB_DETAIL, "__fluid__", 1));
+            }
+        //if not set then when checking in the GUI renderhook then it wont be valid
+            attrib.set(0,"ON");
 
-            uniqueIndex = GA_RWHandleI(gdp->addIntTuple(GA_ATTRIB_DETAIL,"uniqueHandleID",1 ));
+            initialized = true;
+            uniqueIndex = GA_RWHandleI(cachedGDP->addIntTuple(GA_ATTRIB_DETAIL,"uniqueHandleID",1 ));
             uniqueIndex.set(0,myFluid::simvec.size()-1);
     }
+
+    gdp->copy(*cachedGDP, GEO_COPY_ONCE, true, false, GA_DATA_ID_CLONE);
+    //gdp = cachedGDP;
+    //GA_DATA_ID_BUMP
+    //GA_DATA_ID_CLONE
     
 
     return error();
@@ -136,6 +147,8 @@ SOP_Neutron::cookMyGuide1(OP_Context& context)
 {
     return error();
 }
+
+
 // const char *
 // SOP_Neutron::inputLabel(unsigned inum) const
 // {

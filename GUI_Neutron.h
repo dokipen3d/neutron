@@ -63,15 +63,16 @@ public:
                                    unsigned int pick_type,
                                    GR_PickStyle pick_style,
                                    bool has_pick_map);
+
+    virtual void	 renderDecoration(RE_Render *r,
+					  GR_Decoration decor,
+					  const GR_DecorationParms &p);
     /// @}
-    
-    
-    
+
 private:
-    void renderFluid(RE_Render *r, const GR_DisplayOption *opts);
     
     RE_Geometry         *myGeometry;
-
+    int inc = 0;
     RE_Shader *sh;
     
 };

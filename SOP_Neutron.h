@@ -47,9 +47,11 @@ private:
     UT_String aname = UT_String("__fluid__");
     GA_RWHandleS attrib;
     GA_RWHandleI uniqueIndex;
+    int handle = -1;
 
     bool initialized = false;
 	fpreal last = 0.0f;
+    GU_Detail *cachedGDP;
 };
 } // End HDK_Sample namespace
 

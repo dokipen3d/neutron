@@ -65,7 +65,8 @@ void newRenderHook(DM_RenderTable* table)
         GA_PrimitiveTypeId(GA_PRIMPOLYSOUP),
         priority,
         GUI_HOOK_FLAG_AUGMENT_PRIM);
-
+ //GUI_HOOK_FLAG_COLLECT_PRIMS
+//GUI_HOOK_FLAG_AUGMENT_PRIM
     // register custom display options for the hook
     //table->installGeometryOption(RENDER_FLUID, "Render Fluid");
 
@@ -87,13 +88,18 @@ GUI_NeutronHook::createPrimitive(const GT_PrimitiveHandle& gt_prim,
     const char* cache_name,
     GR_PrimAcceptResult& processed)
 {
+
+        std::cout << "boocreate\n";
+
     GU_Detail* parent = static_cast<GU_Detail*>(geo_prim->getParent());
     //only create hook if attribute is set
     GA_RWHandleS attrib(parent, GA_ATTRIB_DETAIL, "__fluid__");
+    //GA_RWHandleS attrib = parent->findFloatTuple(GA_ATTRIB_DETAIL, "__fluid__");
 
     if (geo_prim->getTypeId().get() == GA_PRIMPOLYSOUP && attrib.isValid()) {
 
     //if (geo_prim->getTypeId().get() == GA_PRIMPOLYSOUP) {
+         std::cout << "boocreated!\n";
 
         // We're going to process this prim and prevent any more lower-priority
         // hooks from hooking on it. Alternatively, GR_PROCESSED_NON_EXCLUSIVE
@@ -114,8 +120,8 @@ GUI_Neutron::GUI_Neutron(const GR_RenderInfo* info,
     : GR_Primitive(info, cache_name, GA_PrimCompat::TypeMask(0))
 {
     myGeometry = NULL;
-
-    
+    //std::cout << "con\n";
+    sh = NULL;
 
 }
 
@@ -123,6 +129,7 @@ GUI_Neutron::GUI_Neutron(const GR_RenderInfo* info,
 GUI_Neutron::~GUI_Neutron()
 {
     delete myGeometry;
+    delete sh;
 }
 
 
@@ -133,40 +140,83 @@ GUI_Neutron::acceptPrimitive(GT_PrimitiveType t,
     const GEO_Primitive* prim)
 {
     GU_Detail* parent = static_cast<GU_Detail*>(prim->getParent());
-
+    //std::cout << "boo1\n";
     //see if we have a detail attrib on there
+    //GA_RWHandleS attrib = parent->findFloatTuple(GA_ATTRIB_DETAIL, "__fluid__");
     GA_RWHandleS attrib(parent, GA_ATTRIB_DETAIL, "__fluid__");
-
+    std::cout << "startaccepted!" << std::endl;
     if (geo_type == GA_PRIMPOLYSOUP && attrib.isValid()) {
         //std::cout << "accepted" << std::endl;
-        GA_RWHandleI uniqueHandleID(parent, GA_ATTRIB_DETAIL, "uniqueHandleID");
-        mySim& simObject = myFluid::simvec[uniqueHandleID.get(0)];
-        simObject.doSomething();
+        //GA_RWHandleI uniqueHandleID(parent, GA_ATTRIB_DETAIL, "uniqueHandleID");
+        //mySim& simObject = myFluid::simvec[uniqueHandleID.get(0)];
+        //simObject.doSomething();
+        std::cout << "accepted!" << std::endl;
+
         return GR_PROCESSED;
     }
 
     return GR_NOT_PROCESSED;
 }
+
+
+
+
 void GUI_Neutron::update(RE_Render* r,
     const GT_PrimitiveHandle& primh,
     const GR_UpdateParms& p)
 {
     
+    std::cout << "updating1" << std::endl;
 
 
-    if (p.reason & (GR_GEO_CHANGED | GR_GEO_TOPOLOGY_CHANGED | GR_INSTANCE_PARMS_CHANGED)) {}
+    if (p.reason & (GR_GEO_CHANGED | GR_GEO_TOPOLOGY_CHANGED | GR_INSTANCE_PARMS_CHANGED|
+                    GR_GEO_VISIBILITY_RESTORED | GR_GL_VIEW_CHANGED)){}
         
         UT_DimRect saved_vp = r->getViewport2DI();
-            std::cout << saved_vp.width() << " " << saved_vp.height() << std::endl;
+        //std::cout << saved_vp.width() << " " << saved_vp.height() << std::endl;
 
         bool new_geo = false;
 
         if(!myGeometry)
         {
             myGeometry = new RE_Geometry(8);
-            myGeometry->setNumPoints( 8);
             new_geo = true;
         }
+
+        if(!sh){
+        //std::cout << "got here beforecreate\n";
+
+        sh = RE_Shader::create("My Shader");
+        //std::cout << "got here aftercreate\n";
+
+        UT_String errors;
+        // sh->addShader(r, RE_SHADER_VERTEX, vertSh, 
+        //             "optional readable name", 150, // glsl version
+        //             &errors);
+        // sh->addShader(r, RE_SHADER_FRAGMENT, fragSh, 
+        //             "optional readable name", 150,
+        //             &errors);
+        //std::cout << "got here before add vert\n";
+        sh->addShader(r, RE_SHADER_VERTEX, vertSh, 
+                    "optional readable name", 0);
+        //std::cout << "got here after add vert\n";
+
+        sh->addShader(r, RE_SHADER_FRAGMENT, fragSh, 
+                    "optional readable name", 0);
+        //std::cout << "got here after add frag\n";
+
+        sh->linkShaders(r, &errors);
+        //std::cout << "linked\n";
+        std::cout << "updating6" << std::endl;
+
+
+        //std::cout << errors.c_str() << "\n";
+        //std::cout << "linked2\n";
+
+    }
+
+    
+    std::cout << "updating2" << std::endl;
 
         //create an array of vectors to hold cube
         UT_Vector3FArray pos(8,8);
@@ -181,13 +231,16 @@ void GUI_Neutron::update(RE_Render* r,
         pos(6) = UT_Vector3F(1.0, 1.0, 0.0);
         pos(7) = UT_Vector3F(0.0, 1.0, 0.0);
 
-        
+        myGeometry->createAttribute(r, "P", RE_GPU_FLOAT32, 3, pos.array()->data());
+
+            std::cout << "updating3" << std::endl;
+
 
         // GR_Utils::buildInstanceObjectMatrix(r, primh, p, myGeometry,
         //                     p.instance_version);
 
-        //if(new_geo)
-        //{
+        if(new_geo)
+        {
             const uint cube_elements[] = {
                 // front
                 0, 1, 2,
@@ -220,79 +273,61 @@ void GUI_Neutron::update(RE_Render* r,
             col(6) = UT_Vector3F(1.0, 1.0, 0.0);
             col(7) = UT_Vector3F(0.0, 1.0, 0.0);
             
-            
-            
-        //}
+            myGeometry->createAttribute(r, "Cd", RE_GPU_FLOAT32, 3, col.array()->data());       
 
-        myGeometry->createAttribute(r, "P", RE_GPU_FLOAT32, 3, pos.array()->data(), RE_ARRAY_POINT, 8);
-        myGeometry->createAttribute(r, "Cd", RE_GPU_FLOAT32, 3, col.array()->data(), RE_ARRAY_POINT, 8);       
-
-        myGeometry->connectIndexedPrims(r, FLUID_DRAW_GROUP,
+            myGeometry->connectIndexedPrims(r, FLUID_DRAW_GROUP,
                                 RE_PRIM_TRIANGLES, 36, cube_elements);
+                                    std::cout << "updating4" << std::endl;
 
-        std::cout << "connected\n";
+            
+        }
+
+    //}
+
+        
+
     
     
 }
 
 
 
-void
-GUI_Neutron::renderFluid(RE_Render *r,
-			    const GR_DisplayOption *opts)
-{
 
-    //r->pushShader( GR_Utils::getColorShader(r) );
-    r->pushShader(sh);
-    //std::cout << "draw\n";
-    //myGeometry->draw(r, FLUID_DRAW_GROUP);
-    
-    r->popShader();
-
-
-}
 
 void GUI_Neutron::render(RE_Render* r,
     GR_RenderMode render_mode,
     GR_RenderFlags flags,
     GR_DrawParms dp)
 {
+    //std::cout << "rendering";
+    std::cout << "updating5" << std::endl;
 
-    if(!sh){
-        std::cout << "got here beforecreate\n";
-
-        sh = RE_Shader::create("My Shader");
-        std::cout << "got here aftercreate\n";
-
-        UT_String errors;
-        // sh->addShader(r, RE_SHADER_VERTEX, vertSh, 
-        //             "optional readable name", 150, // glsl version
-        //             &errors);
-        // sh->addShader(r, RE_SHADER_FRAGMENT, fragSh, 
-        //             "optional readable name", 150,
-        //             &errors);
-        std::cout << "got here before add vert\n";
-        sh->addShader(r, RE_SHADER_VERTEX, vertSh, 
-                    "optional readable name", 0);
-        std::cout << "got here after add vert\n";
-
-        sh->addShader(r, RE_SHADER_FRAGMENT, fragSh, 
-                    "optional readable name", 0);
-        std::cout << "got here after add frag\n";
-
-        sh->linkShaders(r, &errors);
-        std::cout << "linked\n";
-
-
-        //std::cout << errors.c_str() << "\n";
-        std::cout << "linked2\n";
-
-    }
-    r->pushShader( sh );
-    //std::cout << "draw\n";
-    myGeometry->draw(r, FLUID_DRAW_GROUP);
     
-    r->popShader();
+    //glEnable(GL_CULL_FACE);
+    //glFrontFace(GL_CW);
+    //r->setBackface(1);
+    //glCullFace(GL_FRONT);
+
+    if(render_mode == GR_RENDER_BEAUTY){
+        std::cout << "updating7" << std::endl;
+
+        r->pushShader( sh );
+            std::cout << "updating8" << std::endl;
+
+
+        //std::cout << "draw\n";
+        myGeometry->draw(r, FLUID_DRAW_GROUP);
+            std::cout << "updating9" << std::endl;
+
+
+        r->popShader();
+            std::cout << "updating10" << std::endl;
+    }
+    //std::cout << inc++ << "\n";
+    //r->setBackface(0);
+    //glFrontFace(GL_CCW);
+    //glDisable(GL_CULL_FACE);
+
     // The native Houdini primitive for polysoups will do the rendering.
 }
 int GUI_Neutron::renderPick(RE_Render* r,
@@ -304,3 +339,9 @@ int GUI_Neutron::renderPick(RE_Render* r,
     // The native Houdini primitive for polysoups will do the rendering.
     return 0;
 }
+
+void
+GUI_Neutron::renderDecoration(RE_Render *r,
+				  GR_Decoration decor,
+				  const GR_DecorationParms &p)
+{}
