@@ -9,6 +9,9 @@
 #include <GT/GT_GEOPrimitive.h>
 #include <RE/RE_Geometry.h>
 #include <RE/RE_Render.h>
+#include <RE/RE_OGLFramebuffer.h>
+#include <RE/RE_Texture.h>
+
 //#include <UT/UT_DSOVersion.h>
 #include "utility_Neutron.h"
 #include <string>
@@ -46,7 +49,31 @@ const char* fragSh =
     "color = vcolor; \n"
 "} \n";
 
+const char* vertShMain = 
 
+"#version 150 \n"
+"\n"
+"uniform mat4 glH_ObjectMatrix; \n"
+"uniform mat4 glH_ViewMatrix; \n"
+"uniform mat4 glH_ProjectMatrix; \n"
+"in vec3 P; \n"
+"void main() \n"
+"{ \n"
+    "gl_Position = glH_ProjectMatrix * \n"
+	"glH_ViewMatrix * glH_ObjectMatrix * vec4(P, 1.0); \n"
+"} \n";
+
+const char* fragShMain = 
+"#version 150 \n"
+"out vec4 color; \n"
+"uniform sampler2DRect texFront;"
+
+"void main() \n"
+"{ \n"
+    "color = texture(texFront, gl_FragCoord.xy); \n"
+    //"color = vec4(1.0, 0.0, 0.0, 1.0); \n"
+
+"} \n";
 
 
 //const char* vertSh = vert.c_str();
@@ -119,9 +146,13 @@ GUI_Neutron::GUI_Neutron(const GR_RenderInfo* info,
     const GEO_Primitive* prim)
     : GR_Primitive(info, cache_name, GA_PrimCompat::TypeMask(0))
 {
-    myGeometry = NULL;
-    //std::cout << "con\n";
-    sh = NULL;
+    myGeometry = nullptr;
+    sh = nullptr;
+    shMain = nullptr;
+    frontPosition = nullptr;
+    backPosition = nullptr;
+    backTexture = nullptr;
+    frontTexture = nullptr;
 
 }
 
@@ -130,6 +161,11 @@ GUI_Neutron::~GUI_Neutron()
 {
     delete myGeometry;
     delete sh;
+    delete shMain;
+    delete frontPosition;
+    delete backPosition;
+    delete frontTexture;
+    delete backTexture;
 }
 
 
@@ -158,7 +194,24 @@ GUI_Neutron::acceptPrimitive(GT_PrimitiveType t,
     return GR_NOT_PROCESSED;
 }
 
+void GUI_Neutron::setupFrameBuffers(RE_Render *r, int width, int height){
 
+    if((!frontPosition) || (!backPosition)){
+        frontPosition = new RE_OGLFramebuffer();
+        backPosition = new RE_OGLFramebuffer();
+                    std::cout << "created\n";
+        }
+
+        frontPosition->setResolution(width, height);
+        //clean up old textures.
+        delete frontTexture;
+        delete backTexture;
+
+        //create a texture rectangle
+        frontTexture = frontPosition->createTexture(r, RE_GPU_FLOAT32, 4, -1, RE_COLOR_BUFFER, 0, true, 0);
+        backTexture = backPosition->createTexture(r, RE_GPU_FLOAT32, 4, -1, RE_COLOR_BUFFER, 0, true, 0);
+    
+}
 
 
 void GUI_Neutron::update(RE_Render* r,
@@ -166,13 +219,14 @@ void GUI_Neutron::update(RE_Render* r,
     const GR_UpdateParms& p)
 {
     
-    std::cout << "updating1" << std::endl;
 
 
-    if (p.reason & (GR_GEO_CHANGED | GR_GEO_TOPOLOGY_CHANGED | GR_INSTANCE_PARMS_CHANGED|
+    if (p.reason & (
                     GR_GEO_VISIBILITY_RESTORED | GR_GL_VIEW_CHANGED)){}
         
         UT_DimRect saved_vp = r->getViewport2DI();
+        int currentWidth = saved_vp.width();
+        int currentHeight = saved_vp.height();
         //std::cout << saved_vp.width() << " " << saved_vp.height() << std::endl;
 
         bool new_geo = false;
@@ -181,42 +235,40 @@ void GUI_Neutron::update(RE_Render* r,
         {
             myGeometry = new RE_Geometry(8);
             new_geo = true;
+            
+        }
+        if( (currentWidth != lastWidth) || (currentHeight != lastHeight) ){
+
+            setupFrameBuffers(r, currentWidth, currentWidth);
+            lastWidth = currentWidth;
+            lastHeight = currentHeight;
         }
 
+
+
+        
+
         if(!sh){
-        //std::cout << "got here beforecreate\n";
+            UT_String errors;
+            sh = RE_Shader::create("My Shader");
+            sh->addShader(r, RE_SHADER_VERTEX, vertSh, 
+                        "optional readable name", 0);
+            sh->addShader(r, RE_SHADER_FRAGMENT, fragSh, 
+                        "optional readable name", 0);
+            sh->linkShaders(r, &errors);
+        }
 
-        sh = RE_Shader::create("My Shader");
-        //std::cout << "got here aftercreate\n";
-
-        UT_String errors;
-        // sh->addShader(r, RE_SHADER_VERTEX, vertSh, 
-        //             "optional readable name", 150, // glsl version
-        //             &errors);
-        // sh->addShader(r, RE_SHADER_FRAGMENT, fragSh, 
-        //             "optional readable name", 150,
-        //             &errors);
-        //std::cout << "got here before add vert\n";
-        sh->addShader(r, RE_SHADER_VERTEX, vertSh, 
-                    "optional readable name", 0);
-        //std::cout << "got here after add vert\n";
-
-        sh->addShader(r, RE_SHADER_FRAGMENT, fragSh, 
-                    "optional readable name", 0);
-        //std::cout << "got here after add frag\n";
-
-        sh->linkShaders(r, &errors);
-        //std::cout << "linked\n";
-        std::cout << "updating6" << std::endl;
-
-
-        //std::cout << errors.c_str() << "\n";
-        //std::cout << "linked2\n";
-
-    }
+        if(!shMain){
+            UT_String errors;
+            shMain = RE_Shader::create("My Shader");
+            shMain->addShader(r, RE_SHADER_VERTEX, vertShMain, 
+                        "optional readable name", 0);
+            shMain->addShader(r, RE_SHADER_FRAGMENT, fragShMain, 
+                        "optional readable name", 0);
+            shMain->linkShaders(r, &errors);
+        }
 
     
-    std::cout << "updating2" << std::endl;
 
         //create an array of vectors to hold cube
         UT_Vector3FArray pos(8,8);
@@ -233,7 +285,6 @@ void GUI_Neutron::update(RE_Render* r,
 
         myGeometry->createAttribute(r, "P", RE_GPU_FLOAT32, 3, pos.array()->data());
 
-            std::cout << "updating3" << std::endl;
 
 
         // GR_Utils::buildInstanceObjectMatrix(r, primh, p, myGeometry,
@@ -277,12 +328,11 @@ void GUI_Neutron::update(RE_Render* r,
 
             myGeometry->connectIndexedPrims(r, FLUID_DRAW_GROUP,
                                 RE_PRIM_TRIANGLES, 36, cube_elements);
-                                    std::cout << "updating4" << std::endl;
 
             
         }
 
-    //}
+    
 
         
 
@@ -300,32 +350,35 @@ void GUI_Neutron::render(RE_Render* r,
     GR_DrawParms dp)
 {
     //std::cout << "rendering";
-    std::cout << "updating5" << std::endl;
 
-    
-    //glEnable(GL_CULL_FACE);
-    //glFrontFace(GL_CW);
-    //r->setBackface(1);
+    //glDisable(GL_CULL_FACE);
+
     //glCullFace(GL_FRONT);
 
     if(render_mode == GR_RENDER_BEAUTY){
-        std::cout << "updating7" << std::endl;
+        glEnable(GL_CULL_FACE);
+        //glFrontFace(GL_CCW);
+
 
         r->pushShader( sh );
-            std::cout << "updating8" << std::endl;
-
-
-        //std::cout << "draw\n";
+        r->pushDrawFramebuffer(frontPosition);
         myGeometry->draw(r, FLUID_DRAW_GROUP);
-            std::cout << "updating9" << std::endl;
-
-
+        r->popDrawFramebuffer();
         r->popShader();
-            std::cout << "updating10" << std::endl;
+                glDisable(GL_CULL_FACE);
+
+
+         r->pushShader( shMain );
+        // r->pushTextureState(0);
+        // r->bindTexture(frontTexture, 0);
+         myGeometry->draw(r, FLUID_DRAW_GROUP);
+        // r->popTextureState();
+         r->popShader();
+
+
+
     }
     //std::cout << inc++ << "\n";
-    //r->setBackface(0);
-    //glFrontFace(GL_CCW);
     //glDisable(GL_CULL_FACE);
 
     // The native Houdini primitive for polysoups will do the rendering.

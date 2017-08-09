@@ -4,7 +4,11 @@
 #include <GUI/GUI_PrimitiveHook.h>
 #include <GR/GR_Primitive.h>
 
+//forward declarations. Include is in cpp file
 class RE_Geometry;
+class RE_OGLFramebuffer;
+class RE_OGLTexture;
+
 namespace HDK_Sample
 {
     
@@ -72,8 +76,20 @@ public:
 private:
     
     RE_Geometry         *myGeometry;
-    int inc = 0;
     RE_Shader *sh;
+    RE_Shader *shMain;
+
+
+    RE_OGLFramebuffer *frontPosition;
+    RE_OGLFramebuffer *backPosition;
+    RE_Texture *frontTexture;
+    RE_Texture *backTexture;
+
+    //so we can track viewport size changes
+    int lastWidth = -1;
+    int lastHeight = -1;
+
+    void setupFrameBuffers(RE_Render *r, int width, int height);
     
 };
 } // End HDK_Sample namespace.
