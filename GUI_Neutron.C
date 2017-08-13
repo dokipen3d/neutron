@@ -86,18 +86,17 @@ const char* fragShMain =
     "float numSteps = length(ray)/stepSize;"
     "ray = normalize(ray);\n"
 
-    "float density = 0.0;\n"
+    "vec4 density = vec4(0.0);\n"
     "vec3 pos = front.xyz;\n"
 
-    "//for (int i = 0; i < 32; i++){\n"
-    "//    vec4 d = texture(volumeTexture, pos);\n"
-    "//   density += d.r;\n"
-    "//   pos += ray*(1.73/32);\n"
-    "//}\n"
+    "for (int i = 0; i < 32; i++){\n"
+    "   density = texture(volumeTexture, pos);\n"
+    "   pos += ray*(1.73/32);\n"
+    "}\n"
 
-    "color = vec4(vec3(density), 1.0); \n"
-    //"color = vec4(vec3(front.xyz), 1.0); \n"
-    "color = texture(volumeTexture, pos);\n"
+    //"color = vec4(vec3(density), 1.0); \n"
+    "color = vec4(vec3(front.xyz), 1.0); \n"
+    //"color = texture(volumeTexture, pos);\n"
 
 "} \n";
 
@@ -246,32 +245,46 @@ void GUI_Neutron::setupFrameBuffers(RE_Render *r, int width, int height){
     
 }
 
-inline static uint32_t flatten3dCoordinatesto1D(uint32_t x, uint32_t y,
-                                                uint32_t z, uint32_t chunkSize) {
-    return (x + chunkSize * (y + chunkSize * z));
+inline static int flatten3dCoordinatesto1D(int i, int j,
+                                                int k, int depth) {
+    //return (x + chunkSize * (y + chunkSize * z));
+    return (i + depth * (j + depth * k));
 }
 
 void GUI_Neutron::setup3dVolume(RE_Render *r, float textureScale){
 
     // Create a 3D Texture
     volumeTexture = RE_Texture::newTexture(RE_TEXTURE_3D);
-    volumeTexture->setResolution(256,256,256);
     volumeTexture->setFormat(RE_GPU_FLOAT32, 1);
 
-    const int textureWidth = 256;
+    const int textureWidth = 64;
+    volumeTexture->setResolution(textureWidth,textureWidth,textureWidth);
 
-    std::vector<fpreal32> vol(textureWidth*textureWidth*textureWidth);
 
-    for(int k; k < textureWidth; k++){
-        for(int j; j < textureWidth; j++){
-            for(int i; i < textureWidth; i++){
-                vol[flatten3dCoordinatesto1D(i,j,k,textureWidth)] = glm::simplex(glm::vec4(j / 16.f, i / 16.f, k / 16.f, 0.5f));
+    std::vector<float> vol;
+    vol.reserve(textureWidth*textureWidth*textureWidth);
+    vol.resize(textureWidth*textureWidth*textureWidth);
+
+    #pragma omp parallel for collapse(3)
+    for(int k = 0; k < textureWidth; k++){
+        for(int j = 0; j < textureWidth; j++){
+            for(int i = 0; i < textureWidth; i++){
+                vol[flatten3dCoordinatesto1D(i,j,k,textureWidth)] =  
+                    glm::simplex(glm::vec3( i / (float)textureWidth, 
+                                            j / (float)textureWidth, 
+                                            k / (float)textureWidth));
+                    
             }
         }
     }
 
+    //std::cout  << "\n";
+
+    
+
     //std::fill(begin(vol), end(vol), 1.0);
     std::cout  << "fillingTex\n";
+    std::cout << vol[flatten3dCoordinatesto1D(128,128,128,textureWidth)] << "\n";
 
     volumeTexture->setTexture(r, vol.data());
 
@@ -414,7 +427,7 @@ void GUI_Neutron::update(RE_Render* r,
         
 
     
-    std::cout << "end of update\n";
+    //std::cout << "end of update\n";
 }
 
 
@@ -426,25 +439,25 @@ void GUI_Neutron::render(RE_Render* r,
     GR_RenderFlags flags,
     GR_DrawParms dp)
 {
-    std::cout << "rendering";
-    if(!volumeTexture){
-        std::cout << "no vt";
-    }
-    if(!sh){
-        std::cout << "no sh";
-    }
-    if(!shMain){
-        std::cout << "no sm";
-    }
-    if(!myGeometry){
-        std::cout << "no geo";
-    }
-    if(!frontPosition){
-        std::cout << "no fp";
-    }
-    if(!backPosition){
-        std::cout << "no bp";
-    }
+    //std::cout << "rendering";
+    // if(!volumeTexture){
+    //     std::cout << "no vt";
+    // }
+    // if(!sh){
+    //     std::cout << "no sh";
+    // }
+    // if(!shMain){
+    //     std::cout << "no sm";
+    // }
+    // if(!myGeometry){
+    //     std::cout << "no geo";
+    // }
+    // if(!frontPosition){
+    //     std::cout << "no fp";
+    // }
+    // if(!backPosition){
+    //     std::cout << "no bp";
+    // }
 
 
     //glDisable(GL_CULL_FACE);
@@ -480,17 +493,20 @@ void GUI_Neutron::render(RE_Render* r,
         r->pushShader( shMain );
 
         r->pushTextureState(RE_ALL_UNITS);
+        // r->pushTextureState(fT);
+        // r->pushTextureState(bT);
+        // r->pushTextureState(vT);
 
         r->bindTexture(frontTexture, fT);
         r->bindTexture(backTexture, bT);
         r->bindTexture(volumeTexture, vT);
         
-        std::cout << "before ren\n";
+        //std::cout << "before ren\n";
         myGeometry->draw(r, FLUID_DRAW_GROUP);
         r->popTextureState();
 
         r->popShader();
-        std::cout << "after ren\n";
+        //std::cout << "after ren\n";
 
 
 

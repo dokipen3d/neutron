@@ -24,11 +24,44 @@
 #include <UT/UT_Vector3.h>
 #include <iostream>
 #include <stddef.h>
+#include <PRM/PRM_SpareData.h>
 #include "utility_Neutron.h"
 
 
 using namespace Neutron;
 
+const char* fragShMainSOP = 
+"#version 330 \n"
+"out vec4 color; \n"
+"uniform sampler2DRect texFront;\n"
+"uniform sampler2DRect texBack;\n"
+"uniform sampler3D volumeTexture;\n"
+
+
+
+"void main() \n"
+"{ \n"
+    "vec4 front = texture(texFront, gl_FragCoord.xy);\n"
+    "vec4 back = texture(texBack, gl_FragCoord.xy);\n"
+    "vec3 ray = back.xyz - front.xyz; \n"
+    
+    "float stepSize = 0.05;\n"
+    "float numSteps = length(ray)/stepSize;"
+    "ray = normalize(ray);\n"
+
+    "vec4 density = vec4(0.0);\n"
+    "vec3 pos = front.xyz;\n"
+
+    "for (int i = 0; i < 32; i++){\n"
+    "   density = texture(volumeTexture, pos);\n"
+    "   pos += ray*(1.73/32);\n"
+    "}\n"
+
+    //"color = vec4(vec3(density), 1.0); \n"
+    "color = vec4(vec3(front.xyz), 1.0); \n"
+    //"color = texture(volumeTexture, pos);\n"
+
+"} \n";
 
 
 void newSopOperator(OP_OperatorTable* table)
@@ -48,11 +81,15 @@ static PRM_Name names[] = {
     PRM_Name("enabled", "Turn on and off simulation"),
     PRM_Name("startframe", "Start frame of simulation"),
     PRM_Name("tilesize", "Size of tiles"),
+    PRM_Name("shader", "GLSL Shader"),
+
 };
 
 static PRM_Default defaultTileSize(1.0);
 static PRM_Default defaultStartFrame(1);
 static PRM_Default defaultEnabled(true);
+static PRM_Default defaultGLSL(0, fragShMainSOP);
+
 
 PRM_Template
     SOP_Neutron::myTemplateList[]
@@ -61,6 +98,7 @@ PRM_Template
         PRM_Template(PRM_TOGGLE, 1, &names[0], &defaultEnabled),
         PRM_Template(PRM_INT, 1, &names[1], &defaultStartFrame),
         PRM_Template(PRM_FLT, 1, &names[2], &defaultTileSize),
+        PRM_Template(PRM_STRING, 1, &names[3], &defaultGLSL, 0, 0, 0, &PRM_SpareData::stringEditor),
         PRM_Template(),
       };
 
