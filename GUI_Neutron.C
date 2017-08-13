@@ -16,6 +16,10 @@
 #include "utility_Neutron.h"
 #include <string>
 #include <cstdio>
+#include <glm/glm.hpp>
+#include <glm/gtc/noise.hpp>
+#include <algorithm>
+
 
 
 using namespace HDK_Sample;
@@ -66,12 +70,32 @@ const char* vertShMain =
 const char* fragShMain = 
 "#version 150 \n"
 "out vec4 color; \n"
-"uniform sampler2DRect texFront;"
+"uniform sampler2DRect texFront;\n"
+"uniform sampler2DRect texBack;\n"
+"uniform sampler3D volumeTexture;\n"
+
+
 
 "void main() \n"
 "{ \n"
-    "color = texture(texFront, gl_FragCoord.xy); \n"
-    //"color = vec4(1.0, 0.0, 0.0, 1.0); \n"
+    "vec4 front = texture(texFront, gl_FragCoord.xy);\n"
+    "vec4 back = texture(texBack, gl_FragCoord.xy);\n"
+    "vec3 ray = back.xyz - front.xyz; \n"
+    
+    "float stepSize = 0.05;\n"
+    "float numSteps = length(ray)/stepSize;"
+    "ray = normalize(ray);\n"
+
+    "float density = 0.0;\n"
+    "vec3 pos = front.xyz;\n"
+
+    "for (int i = 0; i < 32; i++){\n"
+    "   density += texture(volumeTexture, pos).x;\n"
+    "   pos += ray*(1.73/32);\n"
+    "}\n"
+
+    "color = vec4(vec3(density), 1.0); \n"
+    //"color = vec4(vec3(front.xyz), 1.0); \n"
 
 "} \n";
 
@@ -153,6 +177,7 @@ GUI_Neutron::GUI_Neutron(const GR_RenderInfo* info,
     backPosition = nullptr;
     backTexture = nullptr;
     frontTexture = nullptr;
+    volumeTexture = nullptr;
 
 }
 
@@ -166,6 +191,7 @@ GUI_Neutron::~GUI_Neutron()
     delete backPosition;
     delete frontTexture;
     delete backTexture;
+    delete volumeTexture;
 }
 
 
@@ -203,6 +229,8 @@ void GUI_Neutron::setupFrameBuffers(RE_Render *r, int width, int height){
         }
 
         frontPosition->setResolution(width, height);
+        backPosition->setResolution(width, height);
+
         //clean up old textures.
         delete frontTexture;
         delete backTexture;
@@ -211,6 +239,38 @@ void GUI_Neutron::setupFrameBuffers(RE_Render *r, int width, int height){
         frontTexture = frontPosition->createTexture(r, RE_GPU_FLOAT32, 4, -1, RE_COLOR_BUFFER, 0, true, 0);
         backTexture = backPosition->createTexture(r, RE_GPU_FLOAT32, 4, -1, RE_COLOR_BUFFER, 0, true, 0);
     
+}
+
+inline static uint32_t flatten3dCoordinatesto1D(uint32_t x, uint32_t y,
+                                                uint32_t z, uint32_t chunkSize) {
+    return (x + chunkSize * (y + chunkSize * z));
+}
+
+void GUI_Neutron::setup3dVolume(RE_Render *r, float textureScale){
+
+    // Create a 3D Texture
+    volumeTexture = RE_Texture::newTexture(RE_TEXTURE_3D);
+    volumeTexture->setResolution(256,256,256);
+    volumeTexture->setFormat(RE_GPU_FLOAT32, 1);
+
+    const int textureWidth = 256;
+
+    std::vector<fpreal32> vol(textureWidth*textureWidth*textureWidth);
+
+    for(int k; k < textureWidth; k++){
+        for(int j; j < textureWidth; j++){
+            for(int i; i < textureWidth; i++){
+                vol[flatten3dCoordinatesto1D(i,j,k,textureWidth)] = glm::perlin(glm::vec3(i,j,k) , glm::vec3(9.0, 9.0, 9.0));
+            }
+        }
+    }
+
+    //std::fill(begin(vol), end(vol), 1.0);
+    std::cout  << "fillingTex\n";
+
+    volumeTexture->setTexture(r, vol.data());
+
+
 }
 
 
@@ -236,6 +296,7 @@ void GUI_Neutron::update(RE_Render* r,
             myGeometry = new RE_Geometry(8);
             new_geo = true;
             
+            
         }
         if( (currentWidth != lastWidth) || (currentHeight != lastHeight) ){
 
@@ -244,7 +305,12 @@ void GUI_Neutron::update(RE_Render* r,
             lastHeight = currentHeight;
         }
 
-
+        if(!volumeTexture){
+            setup3dVolume(r, 1);
+        }
+        else{
+            std::cout << "TEX!\n";
+        }
 
         
 
@@ -357,22 +423,42 @@ void GUI_Neutron::render(RE_Render* r,
 
     if(render_mode == GR_RENDER_BEAUTY){
         glEnable(GL_CULL_FACE);
-        //glFrontFace(GL_CCW);
+            //colour shader
+            r->pushShader( sh );
+                //draw position framebuffers
+                r->pushDrawFramebuffer(backPosition);
+                    r->clearC();
+                    myGeometry->draw(r, FLUID_DRAW_GROUP);
+                r->popDrawFramebuffer();
+
+                //flip cull direction
+                glFrontFace(GL_CCW);
+                r->pushDrawFramebuffer(frontPosition);
+                    r->clearC();
+                    myGeometry->draw(r, FLUID_DRAW_GROUP);
+                r->popDrawFramebuffer();
+
+                glFrontFace(GL_CW);
+
+            r->popShader();
+        glDisable(GL_CULL_FACE);
+        //end framebufferdraw
 
 
-        r->pushShader( sh );
-        r->pushDrawFramebuffer(frontPosition);
-        myGeometry->draw(r, FLUID_DRAW_GROUP);
-        r->popDrawFramebuffer();
-        r->popShader();
-                glDisable(GL_CULL_FACE);
+        r->pushShader( shMain );
+            int fT = shMain->getUniformTextureUnit("texFront");
+            int bT = shMain->getUniformTextureUnit("texBack");
+            int vT = shMain->getUniformTextureUnit("volumeTexture");
+            std::cout << fT << " " << bT << " " << vT << "\n";
+
+            r->pushTextureState();
+            r->bindTexture(frontTexture, fT);
+            r->bindTexture(backTexture, bT);
+            r->bindTexture(volumeTexture, vT);
 
 
-         r->pushShader( shMain );
-        // r->pushTextureState(0);
-        // r->bindTexture(frontTexture, 0);
-         myGeometry->draw(r, FLUID_DRAW_GROUP);
-        // r->popTextureState();
+            myGeometry->draw(r, FLUID_DRAW_GROUP);
+            r->popTextureState();
          r->popShader();
 
 

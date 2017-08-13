@@ -84,12 +84,15 @@ private:
     RE_OGLFramebuffer *backPosition;
     RE_Texture *frontTexture;
     RE_Texture *backTexture;
+    RE_Texture *volumeTexture;
 
     //so we can track viewport size changes
     int lastWidth = -1;
     int lastHeight = -1;
 
     void setupFrameBuffers(RE_Render *r, int width, int height);
+    void setup3dVolume(RE_Render *r, float textureScale);
+
     
 };
 } // End HDK_Sample namespace.
