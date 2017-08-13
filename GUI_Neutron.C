@@ -55,7 +55,7 @@ const char* fragSh =
 
 const char* vertShMain = 
 
-"#version 150 \n"
+"#version 330 \n"
 "\n"
 "uniform mat4 glH_ObjectMatrix; \n"
 "uniform mat4 glH_ViewMatrix; \n"
@@ -68,7 +68,7 @@ const char* vertShMain =
 "} \n";
 
 const char* fragShMain = 
-"#version 150 \n"
+"#version 330 \n"
 "out vec4 color; \n"
 "uniform sampler2DRect texFront;\n"
 "uniform sampler2DRect texBack;\n"
@@ -89,13 +89,15 @@ const char* fragShMain =
     "float density = 0.0;\n"
     "vec3 pos = front.xyz;\n"
 
-    "for (int i = 0; i < 32; i++){\n"
-    "   density += texture(volumeTexture, pos).x;\n"
-    "   pos += ray*(1.73/32);\n"
-    "}\n"
+    "//for (int i = 0; i < 32; i++){\n"
+    "//    vec4 d = texture(volumeTexture, pos);\n"
+    "//   density += d.r;\n"
+    "//   pos += ray*(1.73/32);\n"
+    "//}\n"
 
     "color = vec4(vec3(density), 1.0); \n"
     //"color = vec4(vec3(front.xyz), 1.0); \n"
+    "color = texture(volumeTexture, pos);\n"
 
 "} \n";
 
@@ -225,7 +227,7 @@ void GUI_Neutron::setupFrameBuffers(RE_Render *r, int width, int height){
     if((!frontPosition) || (!backPosition)){
         frontPosition = new RE_OGLFramebuffer();
         backPosition = new RE_OGLFramebuffer();
-                    std::cout << "created\n";
+                    std::cout << "createdframebuffer\n";
         }
 
         frontPosition->setResolution(width, height);
@@ -238,6 +240,9 @@ void GUI_Neutron::setupFrameBuffers(RE_Render *r, int width, int height){
         //create a texture rectangle
         frontTexture = frontPosition->createTexture(r, RE_GPU_FLOAT32, 4, -1, RE_COLOR_BUFFER, 0, true, 0);
         backTexture = backPosition->createTexture(r, RE_GPU_FLOAT32, 4, -1, RE_COLOR_BUFFER, 0, true, 0);
+
+        std::cout << "end of fb\n";
+
     
 }
 
@@ -260,7 +265,7 @@ void GUI_Neutron::setup3dVolume(RE_Render *r, float textureScale){
     for(int k; k < textureWidth; k++){
         for(int j; j < textureWidth; j++){
             for(int i; i < textureWidth; i++){
-                vol[flatten3dCoordinatesto1D(i,j,k,textureWidth)] = glm::perlin(glm::vec3(i,j,k) , glm::vec3(9.0, 9.0, 9.0));
+                vol[flatten3dCoordinatesto1D(i,j,k,textureWidth)] = glm::simplex(glm::vec4(j / 16.f, i / 16.f, k / 16.f, 0.5f));
             }
         }
     }
@@ -332,6 +337,12 @@ void GUI_Neutron::update(RE_Render* r,
             shMain->addShader(r, RE_SHADER_FRAGMENT, fragShMain, 
                         "optional readable name", 0);
             shMain->linkShaders(r, &errors);
+            fT = shMain->getUniformTextureUnit("texFront");
+            bT = shMain->getUniformTextureUnit("texBack");
+            vT = shMain->getUniformTextureUnit("volumeTexture");
+
+            std::cout << fT << " " << bT << " " << vT << "\n";
+
         }
 
     
@@ -403,7 +414,7 @@ void GUI_Neutron::update(RE_Render* r,
         
 
     
-    
+    std::cout << "end of update\n";
 }
 
 
@@ -415,7 +426,26 @@ void GUI_Neutron::render(RE_Render* r,
     GR_RenderFlags flags,
     GR_DrawParms dp)
 {
-    //std::cout << "rendering";
+    std::cout << "rendering";
+    if(!volumeTexture){
+        std::cout << "no vt";
+    }
+    if(!sh){
+        std::cout << "no sh";
+    }
+    if(!shMain){
+        std::cout << "no sm";
+    }
+    if(!myGeometry){
+        std::cout << "no geo";
+    }
+    if(!frontPosition){
+        std::cout << "no fp";
+    }
+    if(!backPosition){
+        std::cout << "no bp";
+    }
+
 
     //glDisable(GL_CULL_FACE);
 
@@ -445,21 +475,23 @@ void GUI_Neutron::render(RE_Render* r,
         //end framebufferdraw
 
 
+        
+            
         r->pushShader( shMain );
-            int fT = shMain->getUniformTextureUnit("texFront");
-            int bT = shMain->getUniformTextureUnit("texBack");
-            int vT = shMain->getUniformTextureUnit("volumeTexture");
-            std::cout << fT << " " << bT << " " << vT << "\n";
 
-            r->pushTextureState();
-            r->bindTexture(frontTexture, fT);
-            r->bindTexture(backTexture, bT);
-            r->bindTexture(volumeTexture, vT);
+        r->pushTextureState(RE_ALL_UNITS);
 
+        r->bindTexture(frontTexture, fT);
+        r->bindTexture(backTexture, bT);
+        r->bindTexture(volumeTexture, vT);
+        
+        std::cout << "before ren\n";
+        myGeometry->draw(r, FLUID_DRAW_GROUP);
+        r->popTextureState();
 
-            myGeometry->draw(r, FLUID_DRAW_GROUP);
-            r->popTextureState();
-         r->popShader();
+        r->popShader();
+        std::cout << "after ren\n";
+
 
 
 

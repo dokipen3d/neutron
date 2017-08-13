@@ -86,6 +86,10 @@ private:
     RE_Texture *backTexture;
     RE_Texture *volumeTexture;
 
+    //bind points for shader
+    int fT;
+    int bT;
+    int vT;
     //so we can track viewport size changes
     int lastWidth = -1;
     int lastHeight = -1;
