@@ -63,6 +63,8 @@ const char* fragShMainSOP =
 
 "} \n";
 
+ 
+
 
 void newSopOperator(OP_OperatorTable* table)
 {
@@ -82,7 +84,7 @@ static PRM_Name names[] = {
     PRM_Name("startframe", "Start frame of simulation"),
     PRM_Name("tilesize", "Size of tiles"),
     PRM_Name("shader", "GLSL Shader"),
-
+    PRM_Name("recompile_shader", "Recompile GLSL Shader"),
 };
 
 static PRM_Default defaultTileSize(1.0);
@@ -99,8 +101,11 @@ PRM_Template
         PRM_Template(PRM_INT, 1, &names[1], &defaultStartFrame),
         PRM_Template(PRM_FLT, 1, &names[2], &defaultTileSize),
         PRM_Template(PRM_STRING, 1, &names[3], &defaultGLSL, 0, 0, 0, &PRM_SpareData::stringEditor),
+        PRM_Template(PRM_CALLBACK,  1, &names[4], 0, 0, 0, SOP_Neutron::recompileShader),
         PRM_Template(),
       };
+
+
 
 OP_Node*
 SOP_Neutron::myConstructor(OP_Network* net, const char* name, OP_Operator* op)
@@ -134,6 +139,35 @@ SOP_Neutron::SOP_Neutron(OP_Network* net, const char* name, OP_Operator* op)
 
     
     
+
+}
+
+
+int SOP_Neutron::recompileShader(void *data, int index,  
+    float time, const PRM_Template *tplate ){
+
+        SOP_Neutron *me = static_cast<SOP_Neutron*>(data);
+        
+        //me->calledFromCallback = true;
+        //me->myCallBackFlags = 0;
+        
+        OP_Context myContext(time);
+        myContext.setData(static_cast<OP_ContextData*>(data));
+
+        //eval the string parm from the node
+        UT_String shader;
+        me->evalString(shader, "shader", 0, time); 
+            
+        GA_RWHandleI uniqueHandleID(me->cachedGDP, GA_ATTRIB_DETAIL, "uniqueHandleID");
+        //create a reference to the sim object associated with this SOP
+        mySim& simObject = myFluid::simvec[uniqueHandleID.get(0)];
+        simObject.fragmentShader = std::string(shader.steal());
+        simObject.shaderNeedsRecompile = true;
+        
+        me->cookMe(myContext);
+        std::cout << "callback\n";
+        return 1;
+        
 
 }
 

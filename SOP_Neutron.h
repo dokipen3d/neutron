@@ -43,6 +43,9 @@ virtual OP_ERROR cookMyGuide1(OP_Context &context);
 
 
 private:
+    //callback has to be static
+    static int recompileShader(void *data, int index,  
+        float time, const PRM_Template *tplate );
 
     UT_String aname = UT_String("__fluid__");
     GA_RWHandleS attrib;

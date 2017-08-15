@@ -212,6 +212,7 @@ GUI_Neutron::acceptPrimitive(GT_PrimitiveType t,
         //std::cout << "accepted" << std::endl;
         //GA_RWHandleI uniqueHandleID(parent, GA_ATTRIB_DETAIL, "uniqueHandleID");
         //mySim& simObject = myFluid::simvec[uniqueHandleID.get(0)];
+        //compileShader()
         //simObject.doSomething();
         std::cout << "accepted!" << std::endl;
 
@@ -220,6 +221,22 @@ GUI_Neutron::acceptPrimitive(GT_PrimitiveType t,
 
     return GR_NOT_PROCESSED;
 }
+
+void GUI_Neutron::compileShader(RE_Render *r, mySim& simObject){
+    UT_String errors;
+    shMain = RE_Shader::create("My Shader");
+    shMain->addShader(r, RE_SHADER_VERTEX, vertShMain, 
+                "optional readable name", 0);
+    shMain->addShader(r, RE_SHADER_FRAGMENT, simObject.fragmentShader.c_str(), 
+                "optional readable name", 0);
+    shMain->linkShaders(r, &errors);
+    fT = shMain->getUniformTextureUnit("texFront");
+    bT = shMain->getUniformTextureUnit("texBack");
+    vT = shMain->getUniformTextureUnit("volumeTexture");
+
+    std::cout << fT << " " << bT << " " << vT << "\n";
+}
+
 
 void GUI_Neutron::setupFrameBuffers(RE_Render *r, int width, int height){
 
@@ -248,7 +265,9 @@ void GUI_Neutron::setupFrameBuffers(RE_Render *r, int width, int height){
 inline static int flatten3dCoordinatesto1D(int i, int j,
                                                 int k, int depth) {
     //return (x + chunkSize * (y + chunkSize * z));
-    return (i + depth * (j + depth * k));
+    //return (i + depth * (j + depth * k));
+    return i + (j*depth) + (k*depth*depth); 
+    //return  (i * depth + j) * depth + k;
 }
 
 void GUI_Neutron::setup3dVolume(RE_Render *r, float textureScale){
@@ -256,24 +275,41 @@ void GUI_Neutron::setup3dVolume(RE_Render *r, float textureScale){
     // Create a 3D Texture
     volumeTexture = RE_Texture::newTexture(RE_TEXTURE_3D);
     volumeTexture->setFormat(RE_GPU_FLOAT32, 1);
+    volumeTexture->setTextureWrap	(r, RE_CLAMP_EDGE, RE_CLAMP_EDGE, RE_CLAMP_EDGE);
+  	
+        
 
-    const int textureWidth = 64;
+    const int textureWidth = 128;
     volumeTexture->setResolution(textureWidth,textureWidth,textureWidth);
 
 
-    std::vector<float> vol;
-    vol.reserve(textureWidth*textureWidth*textureWidth);
-    vol.resize(textureWidth*textureWidth*textureWidth);
+    std::vector<float> vol(textureWidth*textureWidth*textureWidth);
+    //vol.reserve(textureWidth*textureWidth*textureWidth);
+    //vol.resize(textureWidth*textureWidth*textureWidth);
+
+    float xFactor = 1.0f / (textureWidth - 1);
+    float yFactor = 1.0f / (textureWidth - 1);
+    float zFactor = 1.0f / (textureWidth - 1);
+    
+    
 
     #pragma omp parallel for collapse(3)
     for(int k = 0; k < textureWidth; k++){
         for(int j = 0; j < textureWidth; j++){
             for(int i = 0; i < textureWidth; i++){
+                
+                float x = xFactor * i;
+                float y = yFactor * j;
+                float z = zFactor * k;
+                
+                glm::vec3 p(x, y, z);
+
                 vol[flatten3dCoordinatesto1D(i,j,k,textureWidth)] =  
-                    glm::simplex(glm::vec3( i / (float)textureWidth, 
-                                            j / (float)textureWidth, 
-                                            k / (float)textureWidth));
-                    
+                    glm::clamp(
+                        glm::perlin(p*glm::vec3(4)),
+                    0.0f,1.0f);
+                //vol[flatten3dCoordinatesto1D(i,j,k,textureWidth)] = (float)k/(float)(textureWidth-1);
+                
             }
         }
     }
@@ -301,6 +337,8 @@ void GUI_Neutron::update(RE_Render* r,
 
     if (p.reason & (
                     GR_GEO_VISIBILITY_RESTORED | GR_GL_VIEW_CHANGED)){}
+
+        
         
         UT_DimRect saved_vp = r->getViewport2DI();
         int currentWidth = saved_vp.width();
@@ -317,7 +355,6 @@ void GUI_Neutron::update(RE_Render* r,
             
         }
         if( (currentWidth != lastWidth) || (currentHeight != lastHeight) ){
-
             setupFrameBuffers(r, currentWidth, currentWidth);
             lastWidth = currentWidth;
             lastHeight = currentHeight;
@@ -358,6 +395,16 @@ void GUI_Neutron::update(RE_Render* r,
 
         }
 
+        // Fetch the GEO primitive from the GT primitive handle
+        const GT_GEOPrimitive *gtprim =
+        static_cast<const GT_GEOPrimitive *>(primh.get());
+        const GEO_PrimPolySoup *prim =
+        static_cast<const GEO_PrimPolySoup *>(gtprim->getPrimitive(0));
+        
+        GU_Detail* parent = static_cast<GU_Detail*>(prim->getParent());
+        GA_RWHandleI uniqueHandleID(parent, GA_ATTRIB_DETAIL, "uniqueHandleID");
+        mySim& simObject = myFluid::simvec[uniqueHandleID.get(0)];
+        compileShader(r, simObject);
     
 
         //create an array of vectors to hold cube
@@ -404,6 +451,7 @@ void GUI_Neutron::update(RE_Render* r,
             };
 
             UT_Vector3FArray col(8,8);
+
             col(0) = UT_Vector3F(0.0, 0.0, 1.0);
             col(1) = UT_Vector3F(1.0, 0.0, 1.0);
             col(2) = UT_Vector3F(1.0, 1.0, 1.0);

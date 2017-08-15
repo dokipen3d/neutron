@@ -8,6 +8,8 @@
 class RE_Geometry;
 class RE_OGLFramebuffer;
 class RE_OGLTexture;
+class mySim;
+
 
 namespace HDK_Sample
 {
@@ -73,6 +75,10 @@ public:
 					  const GR_DecorationParms &p);
     /// @}
 
+    virtual bool	requiresAlphaPass() const { return true; }
+    virtual bool	renderInAlphaPass(GR_AlphaPass a) { return false; }
+    
+
 private:
     
     RE_Geometry         *myGeometry;
@@ -96,6 +102,7 @@ private:
 
     void setupFrameBuffers(RE_Render *r, int width, int height);
     void setup3dVolume(RE_Render *r, float textureScale);
+    void compileShader(RE_Render *r, mySim& simObject);
 
     
 };
