@@ -24,13 +24,13 @@ public:
             //max distance a cube can ever be in unit space.
             const float maxDist = sqrt(3.0);
             //how many samples we want to take (measured along diagonal)
-            const int maxNumSamples = 32;
+            const int maxNumSamples = 64;
             //calc step inc
             const float stepSize = maxDist/float(maxNumSamples);
         
             vec4 front = texture(texFront, gl_FragCoord.xy);
             vec4 back = texture(texBack, gl_FragCoord.xy);
-            vec3 ray = front.xyz-back.xyz; 
+            vec3 ray = back.xyz-front.xyz; 
             float rayLength = length(ray);
         
             //how many samples to take through actual ray.
@@ -43,9 +43,9 @@ public:
             float density = 0.0f;
             float T = 1.0f;
             //init start pos
-            vec3 pos = back.xyz;
+            vec3 pos = front.xyz;
             float col = 0.0f;
-            float densityMult = 10;
+            float densityMult = 60;
             //float densityColour = 0.6180;
             float densityColour = 0.32;
             float d2 = 0.0f;
@@ -77,7 +77,8 @@ public:
             //color = vec4(vec3(col), 1.0-T2);
             //color = vec4( vec3(texture(volumeTexture, pos.xyz+vec3(0.5)).xyz), 1.0);
             //color = texture(volumeTexture, front.xyz);
-        }         
+        } 
+            
     )";
 
     bool shaderNeedsRecompile = true;
