@@ -30,39 +30,54 @@
 
 using namespace Neutron;
 
-const char* fragShMainSOP = 
-"#version 330 \n"
-"out vec4 color; \n"
-"uniform sampler2DRect texFront;\n"
-"uniform sampler2DRect texBack;\n"
-"uniform sampler3D volumeTexture;\n"
+const char* fragShMainSOP = R"foo(
+#version 330 
+out vec4 color; 
+
+uniform sampler2DRect texFront;
+uniform sampler2DRect texBack;
+uniform sampler3D volumeTexture;
+
+void main() {
+    color = vec4(vec3(1), 1.0); 
+}
+)foo";
+
+/*
+const char* fragShMainSOP2 = R"(
+#version 330 
+out vec4 color; 
+uniform sampler2DRect texFront;
+uniform sampler2DRect texBack;
+uniform sampler3D volumeTexture;
 
 
 
-"void main() \n"
-"{ \n"
-    "vec4 front = texture(texFront, gl_FragCoord.xy);\n"
-    "vec4 back = texture(texBack, gl_FragCoord.xy);\n"
-    "vec3 ray = back.xyz - front.xyz; \n"
+void main() 
+{ 
+    vec4 front = texture(texFront, gl_FragCoord.xy);
+    vec4 back = texture(texBack, gl_FragCoord.xy);
+    vec3 ray = back.xyz - front.xyz;
     
-    "float stepSize = 0.05;\n"
-    "float numSteps = length(ray)/stepSize;"
-    "ray = normalize(ray);\n"
+    float stepSize = 0.05;
+    float numSteps = length(ray)/stepSize;
+    ray = normalize(ray);
 
-    "vec4 density = vec4(0.0);\n"
-    "vec3 pos = front.xyz;\n"
+    vec4 density = vec4(0.0);
+    vec3 pos = front.xyz;
 
-    "for (int i = 0; i < 32; i++){\n"
-    "   density = texture(volumeTexture, pos);\n"
-    "   pos += ray*(1.73/32);\n"
-    "}\n"
+    for (int i = 0; i < 32; i++){
+       density = texture(volumeTexture, pos);
+       pos += ray*(1.73/32);
+    }
 
-    //"color = vec4(vec3(density), 1.0); \n"
-    "color = vec4(vec3(front.xyz), 1.0); \n"
-    //"color = texture(volumeTexture, pos);\n"
+    //color = vec4(vec3(density), 1.0);
+    color = vec4(vec3(front.xyz), 1.0);
+    //color = texture(volumeTexture, pos);
 
-"} \n";
-
+}
+)";
+*/
  
 
 
@@ -162,6 +177,7 @@ int SOP_Neutron::recompileShader(void *data, int index,
         //create a reference to the sim object associated with this SOP
         mySim& simObject = myFluid::simvec[uniqueHandleID.get(0)];
         simObject.fragmentShader = std::string(shader.steal());
+        //std::cout << simObject.fragmentShader << "\n";
         simObject.shaderNeedsRecompile = true;
         
         me->cookMe(myContext);
@@ -192,6 +208,7 @@ SOP_Neutron::cookMySop(OP_Context& context)
         
     
     if(!initialized){
+            std::cout << "not init\n";
             cachedGDP->appendPrimitive(GA_PRIMPOLYSOUP);
             attrib = cachedGDP->findFloatTuple(GA_ATTRIB_DETAIL, "__fluid__");
             // Not present, so create the detail attribute:

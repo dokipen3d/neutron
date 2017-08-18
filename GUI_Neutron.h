@@ -64,6 +64,7 @@ public:
                                GR_RenderMode           render_mode,
                                GR_RenderFlags          flags,
                                GR_DrawParms            dp);
+
     virtual int         renderPick(RE_Render *r,
                                    const GR_DisplayOption *opt,
                                    unsigned int pick_type,
@@ -75,8 +76,8 @@ public:
 					  const GR_DecorationParms &p);
     /// @}
 
-    virtual bool	requiresAlphaPass() const { return true; }
-    virtual bool	renderInAlphaPass(GR_AlphaPass a) { return false; }
+    //virtual bool	requiresAlphaPass() const { return true; }
+    //virtual bool	renderInAlphaPass(GR_AlphaPass a) { return false; }
     
 
 private:

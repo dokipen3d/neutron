@@ -67,14 +67,13 @@ const char* vertShMain =
 	"glH_ViewMatrix * glH_ObjectMatrix * vec4(P, 1.0); \n"
 "} \n";
 
+
 const char* fragShMain = 
 "#version 330 \n"
 "out vec4 color; \n"
 "uniform sampler2DRect texFront;\n"
 "uniform sampler2DRect texBack;\n"
 "uniform sampler3D volumeTexture;\n"
-
-
 
 "void main() \n"
 "{ \n"
@@ -99,6 +98,12 @@ const char* fragShMain =
     //"color = texture(volumeTexture, pos);\n"
 
 "} \n";
+
+
+
+
+
+
 
 
 //const char* vertSh = vert.c_str();
@@ -141,7 +146,7 @@ GUI_NeutronHook::createPrimitive(const GT_PrimitiveHandle& gt_prim,
     GR_PrimAcceptResult& processed)
 {
 
-        std::cout << "boocreate\n";
+   //     std::cout << "boocreate\n";
 
     GU_Detail* parent = static_cast<GU_Detail*>(geo_prim->getParent());
     //only create hook if attribute is set
@@ -223,18 +228,28 @@ GUI_Neutron::acceptPrimitive(GT_PrimitiveType t,
 }
 
 void GUI_Neutron::compileShader(RE_Render *r, mySim& simObject){
-    UT_String errors;
-    shMain = RE_Shader::create("My Shader");
-    shMain->addShader(r, RE_SHADER_VERTEX, vertShMain, 
-                "optional readable name", 0);
-    shMain->addShader(r, RE_SHADER_FRAGMENT, simObject.fragmentShader.c_str(), 
-                "optional readable name", 0);
-    shMain->linkShaders(r, &errors);
-    fT = shMain->getUniformTextureUnit("texFront");
-    bT = shMain->getUniformTextureUnit("texBack");
-    vT = shMain->getUniformTextureUnit("volumeTexture");
+        UT_String errors;
+    
+        delete shMain;
+        shMain = RE_Shader::create("My Shader");
+        shMain->addShader(r, RE_SHADER_VERTEX, vertShMain, 
+                    "optional readable name", 0);
+        shMain->addShader(r, RE_SHADER_FRAGMENT, simObject.fragmentShader.c_str(), 
+                    "optional readable name", 0);
+    
+        shMain->linkShaders(r, &errors);
+        fT = shMain->getUniformTextureUnit("texFront");
+        bT = shMain->getUniformTextureUnit("texBack");
+        vT = shMain->getUniformTextureUnit("volumeTexture");
+    
+        std::cout << errors.toStdString();
+        std::cout << "compiling!!!!\n";
+        std::cout << fT << " " << bT << " " << vT << "\n";
+        //simObject.shaderNeedsRecompile = false;
+    
+    
+    
 
-    std::cout << fT << " " << bT << " " << vT << "\n";
 }
 
 
@@ -273,13 +288,25 @@ inline static int flatten3dCoordinatesto1D(int i, int j,
 void GUI_Neutron::setup3dVolume(RE_Render *r, float textureScale){
 
     // Create a 3D Texture
+    if(volumeTexture){
+        delete volumeTexture;
+    }
+
+
     volumeTexture = RE_Texture::newTexture(RE_TEXTURE_3D);
+
+    if (volumeTexture->isValid()){
+        std::cout<< "texture is valid\n";
+    }
+    else{
+        std::cout<< "texture is not valid\n";
+    }
     volumeTexture->setFormat(RE_GPU_FLOAT32, 1);
     volumeTexture->setTextureWrap	(r, RE_CLAMP_EDGE, RE_CLAMP_EDGE, RE_CLAMP_EDGE);
   	
         
 
-    const int textureWidth = 128;
+    const int textureWidth = 64;
     volumeTexture->setResolution(textureWidth,textureWidth,textureWidth);
 
 
@@ -293,7 +320,7 @@ void GUI_Neutron::setup3dVolume(RE_Render *r, float textureScale){
     
     
 
-    #pragma omp parallel for collapse(3)
+    //#pragma omp parallel for collapse(3)
     for(int k = 0; k < textureWidth; k++){
         for(int j = 0; j < textureWidth; j++){
             for(int i = 0; i < textureWidth; i++){
@@ -320,10 +347,16 @@ void GUI_Neutron::setup3dVolume(RE_Render *r, float textureScale){
 
     //std::fill(begin(vol), end(vol), 1.0);
     std::cout  << "fillingTex\n";
-    std::cout << vol[flatten3dCoordinatesto1D(128,128,128,textureWidth)] << "\n";
+    //std::cout << vol[flatten3dCoordinatesto1D(128,128,128,textureWidth)] << "\n";
+    
 
     volumeTexture->setTexture(r, vol.data());
-
+    if (volumeTexture->isValid()){
+        std::cout<< "texture is valid2\n";
+    }
+    else{
+        std::cout<< "texture is not valid2\n";
+    }
 
 }
 
@@ -339,7 +372,7 @@ void GUI_Neutron::update(RE_Render* r,
                     GR_GEO_VISIBILITY_RESTORED | GR_GL_VIEW_CHANGED)){}
 
         
-        
+        //std::cout << "updating\n";
         UT_DimRect saved_vp = r->getViewport2DI();
         int currentWidth = saved_vp.width();
         int currentHeight = saved_vp.height();
@@ -355,20 +388,27 @@ void GUI_Neutron::update(RE_Render* r,
             
         }
         if( (currentWidth != lastWidth) || (currentHeight != lastHeight) ){
-            setupFrameBuffers(r, currentWidth, currentWidth);
+            //std::cout << "updating fb\n";
+            
+            setupFrameBuffers(r, currentWidth, currentHeight);
             lastWidth = currentWidth;
             lastHeight = currentHeight;
         }
+        
 
         if(!volumeTexture){
             setup3dVolume(r, 1);
+            std::cout << "after tex!\n";
+            
         }
         else{
             std::cout << "TEX!\n";
         }
 
-        
 
+        
+        std::cout << "before vertshader!\n";
+        
         if(!sh){
             UT_String errors;
             sh = RE_Shader::create("My Shader");
@@ -377,25 +417,10 @@ void GUI_Neutron::update(RE_Render* r,
             sh->addShader(r, RE_SHADER_FRAGMENT, fragSh, 
                         "optional readable name", 0);
             sh->linkShaders(r, &errors);
+            std::cout << errors.toStdString();
         }
 
-        if(!shMain){
-            UT_String errors;
-            shMain = RE_Shader::create("My Shader");
-            shMain->addShader(r, RE_SHADER_VERTEX, vertShMain, 
-                        "optional readable name", 0);
-            shMain->addShader(r, RE_SHADER_FRAGMENT, fragShMain, 
-                        "optional readable name", 0);
-            shMain->linkShaders(r, &errors);
-            fT = shMain->getUniformTextureUnit("texFront");
-            bT = shMain->getUniformTextureUnit("texBack");
-            vT = shMain->getUniformTextureUnit("volumeTexture");
-
-            std::cout << fT << " " << bT << " " << vT << "\n";
-
-        }
-
-        // Fetch the GEO primitive from the GT primitive handle
+        
         const GT_GEOPrimitive *gtprim =
         static_cast<const GT_GEOPrimitive *>(primh.get());
         const GEO_PrimPolySoup *prim =
@@ -404,8 +429,33 @@ void GUI_Neutron::update(RE_Render* r,
         GU_Detail* parent = static_cast<GU_Detail*>(prim->getParent());
         GA_RWHandleI uniqueHandleID(parent, GA_ATTRIB_DETAIL, "uniqueHandleID");
         mySim& simObject = myFluid::simvec[uniqueHandleID.get(0)];
-        compileShader(r, simObject);
-    
+        std::cout << "after get!\n";
+        
+        if(!shMain || simObject.shaderNeedsRecompile){
+            
+            
+            compileShader(r, simObject);
+            // std::cout << "after compile!\n";
+            
+            // std::cout << "no shader main in update!\n";
+            // UT_String errors;
+            // shMain = RE_Shader::create("My Shader");
+            // shMain->addShader(r, RE_SHADER_VERTEX, vertShMain, 
+            //             "optional readable name", 0);
+            // shMain->addShader(r, RE_SHADER_FRAGMENT, fragShMain, 
+            //             "optional readable name", 0);
+            // shMain->linkShaders(r, &errors);
+            // fT = shMain->getUniformTextureUnit("texFront");
+            // bT = shMain->getUniformTextureUnit("texBack");
+            // vT = shMain->getUniformTextureUnit("volumeTexture");
+            // std::cout << errors.toStdString();
+            
+            // std::cout << fT << " " << bT << " " << vT << "\n";
+
+        }
+
+        // Fetch the GEO primitive from the GT primitive handle
+        
 
         //create an array of vectors to hold cube
         UT_Vector3FArray pos(8,8);
@@ -470,8 +520,9 @@ void GUI_Neutron::update(RE_Render* r,
             
         }
 
-    
-
+        // int err =  r->getGLError();
+        // std::cout << std::string(r->getGLErrorString( err )) << "\n";
+        // std::cout << std::endl;
         
 
     
@@ -487,6 +538,8 @@ void GUI_Neutron::render(RE_Render* r,
     GR_RenderFlags flags,
     GR_DrawParms dp)
 {
+
+    //std::cout << "RENDER" << std::endl;
     //std::cout << "rendering";
     // if(!volumeTexture){
     //     std::cout << "no vt";
@@ -513,6 +566,7 @@ void GUI_Neutron::render(RE_Render* r,
     //glCullFace(GL_FRONT);
 
     if(render_mode == GR_RENDER_BEAUTY){
+        
         glEnable(GL_CULL_FACE);
             //colour shader
             r->pushShader( sh );
@@ -541,9 +595,9 @@ void GUI_Neutron::render(RE_Render* r,
         r->pushShader( shMain );
 
         r->pushTextureState(RE_ALL_UNITS);
-        // r->pushTextureState(fT);
-        // r->pushTextureState(bT);
-        // r->pushTextureState(vT);
+                // r->pushTextureState(fT);
+                // r->pushTextureState(bT);
+                // r->pushTextureState(vT);
 
         r->bindTexture(frontTexture, fT);
         r->bindTexture(backTexture, bT);
@@ -554,7 +608,7 @@ void GUI_Neutron::render(RE_Render* r,
         r->popTextureState();
 
         r->popShader();
-        //std::cout << "after ren\n";
+        
 
 
 
