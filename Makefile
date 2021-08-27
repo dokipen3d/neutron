@@ -15,6 +15,7 @@ SOURCES = \
 # Use the highest optimization level.
 OPTIMIZER = -O3
 # Additional include directories.
+INCDIRS = -I/usr/local/include/
 # INCDIRS = \
 #     -I/opt/studio/sdk/include \
 #     -I/opt/studio/third_party/sdk/include
